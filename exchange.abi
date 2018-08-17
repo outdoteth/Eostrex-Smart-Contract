@@ -131,6 +131,20 @@
           "type": "uint64"
         }
       ]
+    }, {
+      "name": "cancel_order",
+      "base": "", 
+      "fields": [{
+          "name": "maker_account",
+          "type": "name"
+        }, {
+          "name": "target_token_contract",
+          "type": string"
+        }, {
+          "name": "order_id", 
+          "type": "uint64"
+        }
+      ]
     }
   ],
   "actions": [{
@@ -148,6 +162,10 @@
     }, {
       "name": "makewithdraw",
       "type": "make_withdraw",
+      "ricardian_contract": ""
+    }, {
+      "name": "cancelorder",
+      "type": "cancel_order",
       "ricardian_contract": ""
     }
   ],
@@ -191,6 +209,13 @@
         "uint64_t"
       ],
       "type": "eos_asseta"
+    }, {
+      "name": "myorders",
+      "index_type": "i64",
+      "key_types": [
+        "uint64_t"
+      ],
+      "type": "my_orders"
     }
   ],
   "ricardian_clauses": [],
