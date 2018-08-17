@@ -6,35 +6,46 @@
       "name": "make_order",
       "base": "",
       "fields": [{
-          "name": "maker",
+          "name": "maker_account",
           "type": "name"
         },{
-          "name": "selling_asset",
-          "type": "asset"
-        },{
-          "name": "selling_code_str",
+          "name": "target_token_contract",
           "type": "string"
         },{
-          "name": "buying_asset",
+          "name": "amount_of_token",
           "type": "asset"
         },{
-          "name": "buying_code_str",
-          "type": "string"
+          "name": "buy_or_sell",
+          "type": "uint8"
+        },{
+          "name": "price",
+          "type": "float32"
         }
       ]
     },{
       "name": "take_order",
       "base": "",
       "fields": [{
-          "name": "taker",
+          "name": "taker_account",
           "type": "name"
         },{
-          "name": "order_target_id",
-          "type": "uint128"
+          "name": "target_token_contract",
+          "type": "string"
         },{
-          "name": "amount_to_spend",
-          "type": "float64"
+          "name": "amount_of_token",
+          "type": "asset"
+        }, {
+          "name": "order_id",
+          "type": "uint64"
         }
+      ]
+    },{
+      "name": "set_eos_asset",
+      "base": "",
+      "fields": [{
+          "name": "eos_asset",
+          "type": "asset"
+      }
       ]
     },{
       "name": "make_withdraw",
@@ -43,48 +54,70 @@
           "name": "withdraw_account",
           "type": "name"
         },{
-          "name": "target_code",
-          "type": "string"
-        },{
-          "name": "amount",
+          "name": "target_token_contract",
+          "type": "string" 
+        }, {
+          "name": "amount_of_token",
           "type": "asset"
         }
       ]
     },{
-      "name": "account",
+      "name": "eos_asseta",
       "base": "",
       "fields": [{
-          "name": "code",
+          "name": "arbritrary_key",
+          "type": "uint64"
+      }, {
+          "name": "eos_asset",
+          "type": "asset"
+      }]
+    }, {
+        "name": "balances",
+        "base": "",
+        "fields": [{
+            "name": "token_contract",
+            "type": "uint64"
+          }, {
+            "name": "balance",
+            "type": "asset"
+          }
+        ]
+    }, {
+        "name": "order",
+        "base": "",
+        "fields": [{
+            "name": "order_id",
+            "type": "uint64"
+          }, {
+            "name": "maker_account",
+            "type": "name"
+          }, {
+            "name": "expiration_date",
+            "type": "uint32"
+          }, {
+            "name": "buy_or_sell",
+            "type": "uint8"
+          }, {
+            "name": "target_token_contract",
+            "type": "uint64"
+          }, {
+            "name": "amount_of_token",
+            "type": "asset"
+          }, {
+            "name": "price",
+            "type": "float32"
+          }
+        ]
+    },
+    {
+      "name": "my_orders",
+      "base": "",
+      "fields": [{
+          "name": "target_token_contract",
           "type": "uint64"
         },{
-          "name": "balances",
-          "type": "asset[]"
-        }
-      ]
-    },{
-      "name": "order",
-      "base": "",
-      "fields": [{
           "name": "order_id",
           "type": "uint64"
-        },{
-          "name": "order_account",
-          "type": "name"
-        },{
-          "name": "expiration_date",
-          "type": "uint64"
-        },{
-          "name": "buying_code",
-          "type": "uint64"
-        },{
-          "name": "buying_asset",
-          "type": "asset"
-        },{
-          "name": "selling_code",
-          "type": "uint64"
-        },{
-          "name": "selling_asset",
-          "type": "asset"
         }
       ]
     },{
@@ -108,7 +141,11 @@
       "name": "takeorder",
       "type": "take_order",
       "ricardian_contract": ""
-    },{
+    }, {
+      "name": "seteosasset",
+      "type": "set_eos_asset",
+      "ricardian_contract": ""
+    }, {
       "name": "makewithdraw",
       "type": "make_withdraw",
       "ricardian_contract": ""
@@ -118,12 +155,12 @@
       "name": "accounts",
       "index_type": "i64",
       "key_names": [
-        "code"
+        "token_contract"
       ],
       "key_types": [
         "uint64"
       ],
-      "type": "account"
+      "type": "balances"
     },{
       "name": "orders",
       "index_type": "i64",
@@ -144,6 +181,16 @@
         "uint64"
       ],
       "type": "count"
+    }, {
+      "name": "eostemplate",
+      "index_type": "i64",
+      "key_names": [
+        "current_count"
+      ],
+      "key_types": [
+        "uint64_t"
+      ],
+      "type": "eos_asseta"
     }
   ],
   "ricardian_clauses": [],
