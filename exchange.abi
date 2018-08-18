@@ -139,7 +139,7 @@
           "type": "name"
         }, {
           "name": "target_token_contract",
-          "type": string"
+          "type": "string"
         }, {
           "name": "order_id", 
           "type": "uint64"

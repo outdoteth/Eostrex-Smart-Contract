@@ -80,11 +80,11 @@ public:
 	//@abi table orders
 	struct order {
 		uint64_t order_id;
-		account_name maker_account;
 		uint32_t expiration_date;
-		uint8_t buy_or_sell; //1 == buy, 0 == sell; where buy means that the maker is going to be buying the token with eos
+		account_name maker_account;
 
 		uint64_t target_token_contract;
+		uint8_t buy_or_sell; //1 == buy, 0 == sell; where buy means that the maker is going to be buying the token with eos
 		asset amount_of_token;
 		float price;
 
@@ -109,12 +109,14 @@ public:
 	};
 
 	typedef eosio::multi_index< N(eostemplate), eos_asseta > eostemplate;
+	typedef eosio::multi_index< N(counter), count > counter;
+
 	typedef eosio::multi_index< N(orders), order > orders;
 	typedef eosio::multi_index< N(myorders), my_orders > myorders;
-	typedef eosio::multi_index< N(counter), count > counter;
 	typedef eosio::multi_index< N(accounts), balances > accounts;
 
 	static void seteosasset(uint64_t self, uint64_t code);
+
 	static void deposit(uint64_t self, uint64_t code);
 	static void makeorder(uint64_t self, uint64_t code);
 	static void takeorder(uint64_t self, uint64_t code);  
@@ -138,7 +140,7 @@ void exchange::seteosasset(uint64_t self, uint64_t code) {
 	});
 }
 
-//Add a handler for the deposit
+
 void exchange::deposit(uint64_t self, uint64_t code) {
 	auto data = unpack_action_data<currency::transfer>();
 	auto from = data.from;
@@ -217,12 +219,12 @@ void exchange::makeorder(uint64_t self, uint64_t code) {
 	auto order_id_ref = total_orders.find(1962);
 	uint64_t order_id_count = order_id_ref->current_count;
 
-    ///New order is scoped to the token's contract
+	///New order is scoped to the token's contract
 	orders new_order(self, target_token_contract);
 	new_order.emplace(maker_account, [&](auto& s) {
 		s.order_id = order_id_count;
 		s.maker_account = maker_account;
-		s.expiration_date = now() + 604800; //Expiration date is set to 7 days later
+		s.expiration_date = now(); //Expiration date is set to 7 days later
 		s.buy_or_sell = buy_or_sell;
 		s.target_token_contract = target_token_contract;
 		s.amount_of_token = amount_of_token;
@@ -239,7 +241,6 @@ void exchange::makeorder(uint64_t self, uint64_t code) {
 
 void exchange::takeorder(uint64_t self, uint64_t code) 
 {
-	///TODO: Erase the taker/maker account's balance if their balances are 0
 	auto data = unpack_action_data<take_order>();
 	account_name taker_account = data.taker_account;
 	string target_token_contract_str = data.target_token_contract;
@@ -267,22 +268,33 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 	myorders maker_order_table(self, maker_account);
 	auto maker_order_reference = maker_order_table.find(target_token_contract+order_id);
 	
-	///Erase orders and return out of function if the current time is greater than the expiration date
+	accounts maker_account_table(self, maker_account);
+	const float price = order_reference->price;
+	const uint8_t buy_or_sell = order_reference->buy_or_sell; 
+	float amount_of_eos = price * amount_of_token.amount;
+	
+	///Erase orders and return out of the function if the current time is greater than the expiration date
 	auto current_time = now();
 	auto order_expiration_date = order_reference->expiration_date;
 	if (current_time > order_expiration_date) {
 		order_to_fill.erase(order_reference);
 		maker_order_table.erase(maker_order_reference);
+		if (buy_or_sell == 1) {
+			auto it = maker_account_table.find(eosio_token_contract);
+			maker_account_table.modify(it, taker_account, [&](auto& s){
+				s.balance.amount += amount_of_eos;
+			});
+		} else if (buy_or_sell == 0) {
+			auto token_contract_ref = maker_account_table.find(target_token_contract);
+			maker_account_table.modify(token_contract_ref, taker_account, [&](auto& s) {
+				s.balance += amount_of_token;
+			});
+		}
 		return;
 	}
 
 	eosio_assert(order_reference->amount_of_token >= amount_of_token && order_reference->amount_of_token.amount > 0, "Overflow error: Amount of token must be greater than 0 and less than the order amount");
 	eosio_assert(order_reference != order_to_fill.end(), "The order_id you entered does not exist!");
-
-	const float price = order_reference->price;
-	const uint8_t buy_or_sell = order_reference->buy_or_sell; 
-	///We need to add the balance to the maker
-	accounts maker_account_table(self, maker_account);
 
 	///We need to subtract the balance from the taker
 	///And then add the balance to the taker
@@ -292,7 +304,6 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 		///Subtract eos balance from the taker
 		auto it = taker_account_table.find(eosio_token_contract);
 		eosio_assert(it != taker_account_table.end(), "You do not have any EOS");
-		float amount_of_eos = price * amount_of_token.amount;
 		taker_account_table.modify(it, taker_account, [&](auto& s) {
 			eosio_assert(amount_of_eos <= s.balance.amount, "Insufficient EOS balance!");
 			s.balance.amount -= amount_of_eos;
@@ -357,7 +368,7 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 		}
 	}
 
-	///We need to subtract from the order
+	///We need to subtract from the order or erase it
 	if (amount_of_token == order_reference->amount_of_token) {
 		maker_order_table.erase(maker_order_reference);
 		order_to_fill.erase(order_reference);
@@ -411,6 +422,7 @@ void exchange::makewithdraw(uint64_t self, uint64_t code)
 }
 
 void exchange::cancelorder(uint64_t self, uint64_t code) {
+	///TODO: Add the balances back to the accounts once they have cancelled the order
 	auto data = unpack_action_data<cancel_order>();
 	string target_token_contract_str = data.target_token_contract;
 	uint64_t order_id = data.order_id;
@@ -421,31 +433,51 @@ void exchange::cancelorder(uint64_t self, uint64_t code) {
 	}
 
 	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_char);
+	uint64_t eosio_token_contract = N(eosio.token);
 
 	orders order_table(self, target_token_contract);
 	auto order_ref = order_table.find(order_id);
 	eosio_assert(order_ref != order_table.end(), "Could not find the specified order");
 
-	require_auth(order_ref->maker_account);
+	account_name maker_account = order_ref->maker_account;
+	myorders myorder_table(self, order_ref->maker_account);
+	auto myorder_ref = myorder_table.find(target_token_contract+order_id);
+	
+	require_auth(maker_account);
+
+	accounts account_table(self, maker_account);
+	if (order_ref->buy_or_sell == 1) {
+		auto it = account_table.find(eosio_token_contract);
+		float amount_of_eos = order_ref->amount_of_token.amount * order_ref->price;
+		account_table.modify(it, maker_account, [&](auto& s){
+			s.balance.amount += amount_of_eos;
+		});
+	} else if (order_ref->buy_or_sell == 0) {
+		auto it = account_table.find(target_token_contract);
+		account_table.modify(it, maker_account, [&](auto& s){
+			s.balance += order_ref->amount_of_token;
+		});
+	}
+
 	order_table.erase(order_ref);
+	myorder_table.erase(myorder_ref);
 }
  
 extern "C" {
-
-/// The apply method implements the dispatch of events to this contract
-void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
-	if( code == N(eosio) && action == N(onerror) ) {
-	//apply_onerror( receiver, onerror::from_current_action() );
-	} else if( code ) {
-		switch(action) {
-				case N(seteosasset): return exchange::seteosasset(receiver, code);
-				case N(transfer): return exchange::deposit(receiver, code);
-				case N(makeorder): return exchange::makeorder(receiver, code);
-				case N(takeorder): return exchange::takeorder(receiver, code);
-				case N(cancelorder): return exchange::cancelorder(receiver, code);
-				case N(makewithdraw): return exchange::makewithdraw(receiver, code);
+	/// The apply method implements the dispatch of events to this contract
+	void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
+		if( code == N(eosio) && action == N(onerror) ) {
+		//apply_onerror( receiver, onerror::from_current_action() );
+		} else if( code ) {
+			switch(action) {
+					case N(seteosasset): return exchange::seteosasset(receiver, code);
+					case N(transfer): return exchange::deposit(receiver, code);
+					case N(makeorder): return exchange::makeorder(receiver, code);
+					case N(takeorder): return exchange::takeorder(receiver, code);
+					case N(cancelorder): return exchange::cancelorder(receiver, code);
+					case N(makewithdraw): return exchange::makewithdraw(receiver, code);
+				}
 			}
-		}
 	}
 }
 
