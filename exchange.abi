@@ -89,17 +89,17 @@
             "name": "order_id",
             "type": "uint64"
           }, {
-            "name": "maker_account",
-            "type": "name"
-          }, {
             "name": "expiration_date",
             "type": "uint32"
           }, {
-            "name": "buy_or_sell",
-            "type": "uint8"
+            "name": "maker_account",
+            "type": "name"
           }, {
             "name": "target_token_contract",
             "type": "uint64"
+          }, {
+            "name": "buy_or_sell",
+            "type": "uint8"
           }, {
             "name": "amount_of_token",
             "type": "asset"

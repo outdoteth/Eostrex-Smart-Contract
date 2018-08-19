@@ -174,12 +174,8 @@ void exchange::makeorder(uint64_t self, uint64_t code) {
 
 	require_auth(maker_account);
 
-	char target_token_contract_char[12];
-	for (int i = 0; i < target_token_contract_str.length(); ++i) {
-		target_token_contract_char[i] = target_token_contract_str[i];
-	}
-
-	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_char);
+	eosio_assert(target_token_contract_str.size() <= 12, "Invalid target_token_contract");
+	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_str.c_str());
 	uint64_t eosio_token_contract = N(eosio.token);
 
 	///Here we check to make sure that the maker_account has the enough balance to cover the order
@@ -249,12 +245,9 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 
 	require_auth(taker_account);
 
-	char target_token_contract_char[12];
-	for (int i = 0; i < target_token_contract_str.length(); ++i) {
-		target_token_contract_char[i] = target_token_contract_str[i];
-	}
-
-	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_char);
+	
+	eosio_assert(target_token_contract_str.size() <= 12, "Invalid target_token_contract");
+	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_str.c_str());
 	uint64_t eosio_token_contract = N(eosio.token);
 
 	orders order_to_fill(self, target_token_contract);
@@ -271,7 +264,6 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 	accounts maker_account_table(self, maker_account);
 	const float price = order_reference->price;
 	const uint8_t buy_or_sell = order_reference->buy_or_sell; 
-	float amount_of_eos = price * amount_of_token.amount;
 	
 	///Erase orders and return out of the function if the current time is greater than the expiration date
 	auto current_time = now();
@@ -280,6 +272,7 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 		order_to_fill.erase(order_reference);
 		maker_order_table.erase(maker_order_reference);
 		if (buy_or_sell == 1) {
+			float amount_of_eos = price * order_reference->amount_of_token.amount;
 			auto it = maker_account_table.find(eosio_token_contract);
 			maker_account_table.modify(it, taker_account, [&](auto& s){
 				s.balance.amount += amount_of_eos;
@@ -302,6 +295,7 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 	accounts taker_account_table(self, taker_account);
 	if (buy_or_sell == 0) {
 		///Subtract eos balance from the taker
+		float amount_of_eos = price * amount_of_token.amount;
 		auto it = taker_account_table.find(eosio_token_contract);
 		eosio_assert(it != taker_account_table.end(), "You do not have any EOS");
 		taker_account_table.modify(it, taker_account, [&](auto& s) {
@@ -389,12 +383,9 @@ void exchange::makewithdraw(uint64_t self, uint64_t code)
 	
 	require_auth(withdraw_account);
 
-	char target_token_contract_char[12];
-	for (int i = 0; i < target_token_contract_str.length(); ++i) {
-		target_token_contract_char[i] = target_token_contract_str[i];
-	}
-
-	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_char);
+	
+	eosio_assert(target_token_contract_str.size() <= 12, "Invalid target_token_contract");
+	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_str.c_str());
 
 	accounts withdraw_account_table(self, withdraw_account);
 	auto it = withdraw_account_table.find(target_token_contract);
@@ -422,17 +413,12 @@ void exchange::makewithdraw(uint64_t self, uint64_t code)
 }
 
 void exchange::cancelorder(uint64_t self, uint64_t code) {
-	///TODO: Add the balances back to the accounts once they have cancelled the order
 	auto data = unpack_action_data<cancel_order>();
 	string target_token_contract_str = data.target_token_contract;
 	uint64_t order_id = data.order_id;
 
-	char target_token_contract_char[12];
-	for (int i = 0; i < target_token_contract_str.length(); ++i) {
-		target_token_contract_char[i] = target_token_contract_str[i];
-	}
-
-	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_char);
+	eosio_assert(target_token_contract_str.size() <= 12, "Invalid target_token_contract");
+	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_str.c_str());
 	uint64_t eosio_token_contract = N(eosio.token);
 
 	orders order_table(self, target_token_contract);
