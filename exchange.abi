@@ -3,7 +3,7 @@
   "version": "eosio::abi/1.0",
   "types": [],
   "structs": [{
-      "name": "make_order",
+      "name": "makeorder",
       "base": "",
       "fields": [{
           "name": "maker_account",
@@ -23,7 +23,7 @@
         }
       ]
     },{
-      "name": "take_order",
+      "name": "takeorder",
       "base": "",
       "fields": [{
           "name": "taker_account",
@@ -40,7 +40,7 @@
         }
       ]
     },{
-      "name": "set_eos_asset",
+      "name": "seteosasset",
       "base": "",
       "fields": [{
           "name": "eos_asset",
@@ -48,7 +48,7 @@
       }
       ]
     },{
-      "name": "make_withdraw",
+      "name": "makewithdraw",
       "base": "",
       "fields": [{
           "name": "withdraw_account",
@@ -132,7 +132,7 @@
         }
       ]
     }, {
-      "name": "cancel_order",
+      "name": "cancelorder",
       "base": "", 
       "fields": [{
           "name": "maker_account",
@@ -149,23 +149,23 @@
   ],
   "actions": [{
       "name": "makeorder",
-      "type": "make_order",
+      "type": "makeorder",
       "ricardian_contract": ""
     },{
       "name": "takeorder",
-      "type": "take_order",
+      "type": "takeorder",
       "ricardian_contract": ""
     }, {
       "name": "seteosasset",
-      "type": "set_eos_asset",
+      "type": "seteosasset",
       "ricardian_contract": ""
     }, {
       "name": "makewithdraw",
-      "type": "make_withdraw",
+      "type": "makewithdraw",
       "ricardian_contract": ""
     }, {
       "name": "cancelorder",
-      "type": "cancel_order",
+      "type": "cancelorder",
       "ricardian_contract": ""
     }
   ],
