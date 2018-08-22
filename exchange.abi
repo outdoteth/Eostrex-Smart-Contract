@@ -118,6 +118,15 @@
         },{
           "name": "order_id",
           "type": "uint64"
+        },{
+          "name": "expiration_date",
+          "type": "uint32"
+        }, {
+          "name": "amount_of_token",
+          "type": "asset"
+        }, {
+          "name": "price",
+          "type": "float32"
         }
       ]
     },{

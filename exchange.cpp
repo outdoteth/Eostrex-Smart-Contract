@@ -96,6 +96,10 @@ public:
 	struct my_orders {
 		uint64_t target_token_contract;
 		uint64_t order_id;
+
+		uint32_t expiration_date;
+		asset amount_of_token;
+		float price;
 		uint64_t primary_key() const { return target_token_contract+order_id; }
 	};
 
@@ -232,6 +236,9 @@ void exchange::makeorder(uint64_t self, uint64_t code) {
 	my_order_table.emplace(maker_account, [&](auto& s){
 		s.target_token_contract = target_token_contract;
 		s.order_id = order_id_count;
+		s.expiration_date = now();
+		s.price = price;
+		s.amount_of_token = amount_of_token;
 	});
 }
 
@@ -245,13 +252,13 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 
 	require_auth(taker_account);
 
-	
 	eosio_assert(target_token_contract_str.size() <= 12, "Invalid target_token_contract");
 	uint64_t target_token_contract = eosio::string_to_name(target_token_contract_str.c_str());
 	uint64_t eosio_token_contract = N(eosio.token);
 
 	orders order_to_fill(self, target_token_contract);
 	auto order_reference = order_to_fill.find(order_id);
+	
 	eostemplate eos_template_ref(self, self);
 	auto eos_asset_struct = eos_template_ref.find(1962);
 	const asset eos_asset = eos_asset_struct->eos_asset;
@@ -286,6 +293,7 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 		return;
 	}
 
+	eosio_assert(amount_of_token.symbol == order_reference->amount_of_token.symbol, "Symbol mismatch");
 	eosio_assert(order_reference->amount_of_token >= amount_of_token && order_reference->amount_of_token.amount > 0, "Overflow error: Amount of token must be greater than 0 and less than the order amount");
 	eosio_assert(order_reference != order_to_fill.end(), "The order_id you entered does not exist!");
 
