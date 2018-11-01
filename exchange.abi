@@ -37,6 +37,9 @@
         }, {
           "name": "order_id",
           "type": "uint64"
+        }, {
+          "name": "price",
+          "type": "float32"
         }
       ]
     },{

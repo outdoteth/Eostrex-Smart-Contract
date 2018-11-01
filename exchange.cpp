@@ -35,6 +35,8 @@ public:
 		account_name taker_account;
 		string target_token_contract;
 		asset amount_of_token;
+		float price;
+		uint8_t buy_or_sell;
 		uint64_t order_id;
 	};
 
@@ -57,6 +59,10 @@ public:
 		asset eos_asset;
 	};
 
+	struct set_admin {
+		account_name administrator;
+	}
+
 	// ------------------------------ Tables ------------------------------ //
 
 	///This is the template so that we have an eos asset
@@ -67,6 +73,14 @@ public:
 		asset eos_asset;		
 		uint64_t primary_key() const { return arbritrary_key; }
 	};
+
+	///Admin that can withdraw the fee amounts
+	//@abi table admin
+	struct admin {
+		uint64_t arbritrary_key = 1962;
+		account_name administrator;		
+		uint64_t primary_key() const { return arbritrary_key; }
+	}
 
 	///Each one of these should be scoped to an account
 	//@abi table accounts
@@ -113,6 +127,7 @@ public:
 	};
 
 	typedef eosio::multi_index< N(eostemplate), eos_asseta > eostemplate;
+	typedef eosio::multi_index< N(administrator), admin > administrator;
 	typedef eosio::multi_index< N(counter), count > counter;
 
 	typedef eosio::multi_index< N(orders), order > orders;
@@ -120,6 +135,7 @@ public:
 	typedef eosio::multi_index< N(accounts), balances > accounts;
 
 	static void seteosasset(uint64_t self, uint64_t code);
+	static void setadmin(uint64_t self, uint64_t code);
 
 	static void deposit(uint64_t self, uint64_t code);
 	static void makeorder(uint64_t self, uint64_t code);
@@ -144,6 +160,25 @@ void exchange::seteosasset(uint64_t self, uint64_t code) {
 	});
 }
 
+///Set the administrator
+///This is the account that will recieve the fees 
+void exchange::setadmin(uint64_t self, uint64_t code) {
+	auto data = unpack_action_data<set_admin>();
+	account_name admin = data.administrator;
+	require_auth(self);
+
+	administrator admin_table(self, self);
+	auto it = admin_table.find(1962);
+	if (it != admin_table.end()) {
+		admin_table.modify(it, admin, [&](auto& s){
+			s.administrator = admin;
+		});
+	} else {
+		admin_table.emplace(admin, [&](auto& s) {
+			s.administrator = admin;
+		});
+	}
+}
 
 void exchange::deposit(uint64_t self, uint64_t code) {
 	auto data = unpack_action_data<currency::transfer>();
@@ -153,14 +188,14 @@ void exchange::deposit(uint64_t self, uint64_t code) {
 		return;
 
 	accounts st(self, from);
-		auto it = st.find(code);
-		if (it != st.end()) {
-			st.modify(it, from, [&](auto& s) {
-					s.balance += amount;
-				}
-			);
-		} else {
-			st.emplace(from, [&](auto& s) {
+	auto it = st.find(code);
+	if (it != st.end()) {
+		st.modify(it, from, [&](auto& s) {
+				s.balance += amount;
+			}
+		);
+	} else {
+		st.emplace(from, [&](auto& s) {
 				s.token_contract = code;
 				s.balance = amount;
 			}
@@ -249,6 +284,7 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 	string target_token_contract_str = data.target_token_contract;
 	asset amount_of_token = data.amount_of_token;
 	uint64_t order_id = data.order_id;
+	float take_price = data.price;
 
 	require_auth(taker_account);
 
@@ -271,27 +307,13 @@ void exchange::takeorder(uint64_t self, uint64_t code)
 	accounts maker_account_table(self, maker_account);
 	const float price = order_reference->price;
 	const uint8_t buy_or_sell = order_reference->buy_or_sell; 
-	
-	///Erase orders and return out of the function if the current time is greater than the expiration date
+
+	eosio_assert(take_price == price, "Price does not match the order. Are you sure you have selected the correct order?"); //Failsafe
+
+	///Check that order hasn't expired
 	auto current_time = now();
 	auto order_expiration_date = order_reference->expiration_date;
-	if (current_time > order_expiration_date) {
-		order_to_fill.erase(order_reference);
-		maker_order_table.erase(maker_order_reference);
-		if (buy_or_sell == 1) {
-			float amount_of_eos = price * order_reference->amount_of_token.amount;
-			auto it = maker_account_table.find(eosio_token_contract);
-			maker_account_table.modify(it, taker_account, [&](auto& s){
-				s.balance.amount += amount_of_eos;
-			});
-		} else if (buy_or_sell == 0) {
-			auto token_contract_ref = maker_account_table.find(target_token_contract);
-			maker_account_table.modify(token_contract_ref, taker_account, [&](auto& s) {
-				s.balance += amount_of_token;
-			});
-		}
-		return;
-	}
+	eosio_assert(current_time < order_expiration_date, "The order you selected has expired");
 
 	eosio_assert(amount_of_token.symbol == order_reference->amount_of_token.symbol, "Symbol mismatch");
 	eosio_assert(order_reference->amount_of_token >= amount_of_token && order_reference->amount_of_token.amount > 0, "Overflow error: Amount of token must be greater than 0 and less than the order amount");
@@ -456,7 +478,8 @@ void exchange::cancelorder(uint64_t self, uint64_t code) {
 	order_table.erase(order_ref);
 	myorder_table.erase(myorder_ref);
 }
- 
+
+///Listen to actions
 extern "C" {
 	/// The apply method implements the dispatch of events to this contract
 	void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
@@ -465,6 +488,7 @@ extern "C" {
 		} else if( code ) {
 			switch(action) {
 					case N(seteosasset): return exchange::seteosasset(receiver, code);
+					case N(setadmin): return exchange::setadmin(receiver, code);
 					case N(transfer): return exchange::deposit(receiver, code);
 					case N(makeorder): return exchange::makeorder(receiver, code);
 					case N(takeorder): return exchange::takeorder(receiver, code);
